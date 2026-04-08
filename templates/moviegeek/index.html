@@ -1,0 +1,143 @@
+{% extends "moviegeek/base.html" %}
+
+{% block head %}
+<style>
+    .item-card {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 8px;
+        margin: 4px;
+        height: 110px;
+        overflow: hidden;
+        cursor: pointer;
+        background: #f9f9f9;
+        transition: background 0.2s;
+    }
+    .item-card:hover {
+        background: #e9e9e9;
+    }
+    .item-card .item-title {
+        font-size: 11px;
+        font-weight: bold;
+        line-height: 1.3;
+        max-height: 28px;  /* exactly 2 lines */
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .item-card .item-price {
+        font-size: 13px;
+        font-weight: bold;
+        color: #b12704;
+        margin-top: 4px;
+    }
+    .item-card .item-rating {
+        font-size: 11px;
+        color: #e8a317;
+        margin-top: 2px;
+    }
+    .rec-card {
+        border: 1px solid #cde;
+        border-radius: 4px;
+        padding: 8px;
+        margin: 4px;
+        height: 100px;
+        overflow: hidden;
+        background: #f0f6ff;
+        font-size: 11px;
+    }
+    .rec-card a { color: #333; }
+    .col-item { width: 16.66%; float: left; padding: 0 5px; box-sizing: border-box; }
+    @media (max-width: 992px) { .col-item { width: 25%; } }
+    @media (max-width: 768px) { .col-item { width: 50%; } }
+    @media (max-width: 480px) { .col-item { width: 50%; } .item-card { height: 95px; padding: 6px; } .item-card .item-title { font-size: 10px; } }
+</style>
+<script>
+    function get_cf_recs(userid) {
+        $.getJSON('/rec/cf/user/' + userid + '/', function(result) {
+            if (result.data && result.data.length > 0) {
+                var recs = document.getElementById('cf_recs');
+                recs.style.display = 'block';
+                result.data.forEach(function(element) {
+                    add_rec_item(element[0], recs);
+                });
+            }
+        });
+    }
+
+    function add_rec_item(id, container) {
+        $.getJSON(get_url(id), function(item) {
+            var div = document.createElement('div');
+            div.setAttribute('class', 'col-xs-2 rec-card');
+            var price_str = item.price ? '$' + item.price.toFixed(2) : '';
+            var rating_str = item.average_rating ? '&#9733; ' + item.average_rating.toFixed(1) : '';
+            div.innerHTML = '<a href="/movies/movie/' + id + '/">' +
+                '<strong>' + (item.title || '').substring(0, 60) + '</strong><br/>' +
+                '<span style="color:#b12704;">' + price_str + '</span> ' +
+                '<span style="color:#e8a317;">' + rating_str + '</span></a>';
+            container.appendChild(div);
+        });
+    }
+</script>
+{% endblock head %}
+
+{% block content %}
+    <div>
+        <h2>{{ page_title }}</h2>
+
+        <div id="cf_recs" class="row" style="display: none">
+            <h4>Рекомендации для вас (Collaborative Filtering)</h4>
+        </div>
+
+        <div class="row">
+            {% if items_with_details %}
+                {% for item in items_with_details %}
+                <div class="col-item">
+                    <a href="/movies/movie/{{ item.movie_id }}/" style="text-decoration:none; color:inherit;">
+                        <div class="item-card">
+                            <div class="item-title">{{ item.title }}</div>
+                            {% if item.average_rating %}
+                            <div class="item-rating">&#9733; {{ item.average_rating }}</div>
+                            {% endif %}
+                            {% if item.price %}
+                            <div class="item-price">${{ item.price }}</div>
+                            {% endif %}
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <div class="row" style="clear:both;">
+        {% if movies.has_other_pages %}
+        <ul class="pagination">
+            {% if movies.has_previous %}
+                <li><a href="?page={{ movies.previous_page_number }}{% if request.GET.genre %}&genre={{ request.GET.genre }}{% endif %}">&laquo;</a></li>
+            {% else %}
+                <li class="disabled"><span>&laquo;</span></li>
+            {% endif %}
+            {% for i in pages %}
+                {% if i == movies.number %}
+                    <li class="active">
+                        <span>{{ i }} <span class="sr-only">(current)</span></span>
+                    </li>
+                {% else %}
+                    <li><a href="?page={{ i }}{% if request.GET.genre %}&genre={{ request.GET.genre }}{% endif %}">{{ i }}</a></li>
+                {% endif %}
+            {% endfor %}
+            {% if movies.has_next %}
+                <li><a href="?page={{ movies.next_page_number }}{% if request.GET.genre %}&genre={{ request.GET.genre }}{% endif %}">&raquo;</a></li>
+            {% else %}
+                <li class="disabled"><span>&raquo;</span></li>
+            {% endif %}
+        </ul>
+        {% endif %}
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        get_cf_recs('{{ user_id }}');
+    </script>
+{% endblock content %}

@@ -1,2 +1,128 @@
-# school-recsys
-Рекомендательная система по выбору школьных товаров
+# Рекомендательная система школьных и офисных товаров
+
+Демо-сайт рекомендательных систем на базе Django. Вместо фильмов используется датасет школьных/офисных товаров Amazon (23 000+ товаров, 700 000+ оценок).
+
+На странице каждого товара демонстрируются **9 алгоритмов рекомендаций**:
+
+| # | Алгоритм | Тип | Описание |
+|---|----------|-----|----------|
+| 1 | Item-based CF | Collaborative Filtering | Похожие товары по матрице сходства (Jaccard) |
+| 2 | Neighborhood CF | Collaborative Filtering | Рекомендации на основе похожих пользователей |
+| 3 | Content-Based (item) | Content-Based | TF-IDF по описаниям товаров |
+| 4 | Content-Based (user) | Content-Based | Профиль интересов пользователя через TF-IDF |
+| 5 | ALS | Matrix Factorization | Alternating Least Squares (implicit) |
+| 6 | BPR | Matrix Factorization | Bayesian Personalized Ranking (implicit) |
+| 7 | SVD | Matrix Factorization | Truncated SVD (scipy) |
+| 8 | FWLS | Hybrid | Feature Weighted Linear Stacking (CB + CF) |
+| 9 | Popularity | Baseline | Популярные товары в той же категории |
+
+## Быстрый старт
+
+### 1. Установка зависимостей
+
+```bash
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 2. Создание базы данных
+
+```bash
+python manage.py makemigrations
+python manage.py migrate --run-syncdb
+```
+
+### 3. Загрузка данных
+
+Файлы `office_school_items.csv` и `office_school_interactions.csv` должны лежать в корне проекта.
+
+```bash
+# Загрузка товаров (23 000+ записей)
+python populate_items.py
+
+# Загрузка оценок пользователей (700 000+ записей)
+python populate_ratings.py
+```
+
+### 4. Построение матрицы сходства (Item-based CF)
+
+```bash
+python builder/item_similarity_calculator.py --min_overlap 2 --min_sim 0.0 --data ratings
+```
+
+### 5. Построение TF-IDF матрицы (Content-Based)
+
+```bash
+python builder/tfidf_similarity_builder.py
+```
+
+### 6. Обучение моделей (ALS, BPR, SVD)
+
+```bash
+python train_implicit_models.py
+```
+
+### 7. Запуск сервера
+
+```bash
+python manage.py runserver 127.0.0.1:8000
+```
+
+Сайт доступен по адресу: [http://127.0.0.1:8000](http://127.0.0.1:8000)
+
+## Оценка моделей
+
+Скрипт `evaluate_models.py` вычисляет метрики Precision@K, Recall@K, NDCG@K, MAP@K, Hit Rate@K и Coverage для всех моделей:
+
+```bash
+python evaluate_models.py --users 200 --k 5 10 20
+```
+
+Результаты сохраняются в `evaluation_results.csv`.
+
+## Структура проекта
+
+```
+├── office_school_items.csv        # Датасет товаров
+├── office_school_interactions.csv # Датасет оценок
+├── populate_items.py              # Скрипт загрузки товаров в БД
+├── populate_ratings.py            # Скрипт загрузки оценок в БД
+├── train_implicit_models.py       # Обучение ALS, BPR, SVD
+├── evaluate_models.py             # Оценка всех моделей
+├── builder/
+│   ├── item_similarity_calculator.py  # Построение Item-based CF
+│   └── tfidf_similarity_builder.py    # Построение TF-IDF сходства
+├── recs/
+│   ├── als_recommender.py             # ALS (implicit)
+│   ├── implicit_bpr_recommender.py    # BPR (implicit)
+│   ├── svd_recommender.py             # SVD (scipy)
+│   ├── neighborhood_based_recommender.py  # User-based CF
+│   ├── content_based_recommender.py   # Content-Based (LDA/TF-IDF)
+│   ├── fwls_recommender.py            # Hybrid FWLS
+│   └── popularity_recommender.py      # Popularity baseline
+├── moviegeeks/                    # Django app: модели товаров
+├── analytics/                     # Django app: рейтинги
+├── recommender/                   # Django app: API рекомендаций
+└── templates/                     # HTML шаблоны
+```
+
+## Данные
+
+- **Товары**: Amazon Office & School Supplies (title, description, features, categories, price, rating — на EN и RU)
+- **Оценки**: user_id, parent_asin, rating (1-5), timestamp
+- Категории извлекаются из 3-го уровня поля `categories_en` (split по `|`) и переведены на русский
+
+## Технологии
+
+- Python 3.10+
+- Django 4.2+
+- implicit (ALS, BPR)
+- scipy (SVD)
+- scikit-learn (TF-IDF)
+- gensim (LDA)
+- pandas, numpy
